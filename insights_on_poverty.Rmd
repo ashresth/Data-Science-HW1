@@ -1,0 +1,431 @@
+---
+title: "Homework 1: Insights on Poverty"
+date: "February 4, 2016"
+output: html_document
+---
+ 
+**This homework is due Sunday February 14, 2016 at 11:59 PM. When complete, submit your code in the R Markdown file and the knitted HTML file on Canvas.**
+
+
+# Background
+
+This HW is based on Hans Rosling talks [New Insights on Poverty](https://www.ted.com/talks/hans_rosling_reveals_new_insights_on_poverty?language=en) and [The Best Stats You've Ever Seen](https://www.ted.com/talks/hans_rosling_shows_the_best_stats_you_ve_ever_seen). 
+
+The assignment uses data to answer specific question about global health and economics. The data contradicts commonly held preconceived notions. For example, Hans Rosling starts his talk by asking: (paraphrased) "for each of the six pairs of countries below, which country do you think had the highest child mortality in 2015?" 
+
+1. Sri Lanka or Turkey
+2. Poland or South Korea
+3. Malaysia or Russia
+4. Pakistan or Vietnam
+5. Thailand or South Africa
+
+Most people get them wrong. Why is this? In part it is due to our preconceived notion that the world is divided into two groups: the
+_Western world_ versus the _third world_, characterized by "long life,small family" and "short life, large family" respectively. In this homework we will use data visualization to gain insights on this topic.  
+
+
+# Problem 1
+
+The first step in our analysis is to download and organize the data. The necessary data to answer these question is available on the [gapminder](http://www.gapminder.org/data/) website. 
+
+## Problem 1.1
+
+We will use the following datasets:
+
+1.     [Childhood mortality](http://spreadsheets.google.com/pub?key=0ArfEDsV3bBwCcGhBd2NOQVZ1eWowNVpSNjl1c3lRSWc&output=csv)
+2.     [Life expectancy](http://spreadsheets.google.com/pub?key=phAwcNAVuyj2tPLxKvvnNPA&output=csv)
+3.     [Fertility](http://spreadsheets.google.com/pub?key=phAwcNAVuyj0TAlJeCEzcGQ&output=csv)
+4.     [Population](http://spreadsheets.google.com/pub?key=phAwcNAVuyj0XOoBL_n5tAQ&output=csv)
+5.     [Total GDP](http://spreadsheets.google.com/pub?key=pyj6tScZqmEfI4sLVvEQtHw&output=csv)
+
+Create five `tbl_df` table objects, one for each of the tables provided in the above files. Hints: Use the `read_csv` function. Because these are only temporary files, give them short names.
+```{r,include=FALSE}
+library("readr")
+cmort<-read_csv("http://spreadsheets.google.com/pub?key=0ArfEDsV3bBwCcGhBd2NOQVZ1eWowNVpSNjl1c3lRSWc&output=csv")
+lifex<-read_csv("http://spreadsheets.google.com/pub?key=phAwcNAVuyj2tPLxKvvnNPA&output=csv")
+fert<-read_csv("http://spreadsheets.google.com/pub?key=phAwcNAVuyj0TAlJeCEzcGQ&output=csv")
+pop<-read_csv("http://spreadsheets.google.com/pub?key=phAwcNAVuyj0XOoBL_n5tAQ&output=csv")
+gdp<-read_csv("http://spreadsheets.google.com/pub?key=pyj6tScZqmEfI4sLVvEQtHw&output=csv")
+```
+
+
+## Problem 1.2
+
+Write a function called `my_func` that takes a table as an argument and returns the column name. For each of the five tables, what is the name of the column containing the country names? Print out the tables or look at them with `View` to determine the column.
+
+```{r, eval=FALSE}
+#Check what column has the country name in each table
+View(cmort)
+View(lifex)
+View(fert)
+View(pop)
+View(gdp)
+#All tables have the country name on the first column, we can create a function that returns the name of the first column of a dataframe to get the name of the column containing the country name from the 5 dataframes.
+```
+
+
+```{r}
+my_func<-function(x){
+  cname<-colnames(x)[1]
+  return(cname)
+}
+```
+The names of the columns containing the names are:
+
+```{r}
+cat(my_func(cmort),
+    my_func(lifex), 
+    my_func(fert),
+    my_func(pop),
+    my_func(gdp),
+    sep="\n")
+```
+
+
+## Problem 1.3 
+
+In the previous problem we noted that gapminder is inconsistent in naming their country column. Fix this by assigning a common name to this column in the various tables.
+
+```{r}
+colnames(cmort)[1]<-"Country"
+colnames(lifex)[1]<-"Country"
+colnames(fert)[1]<-"Country"
+colnames(pop)[1]<-"Country"
+colnames(gdp)[1]<-"Country"
+```
+
+## Problem 1.4 
+
+Notice that in these tables, years are represented by columns. We want to create a tidy dataset in which each row is a unit or observation and our 5 values of interest, including the year for that unit, are in the columns. The unit here is a country/year pair and each unit gets values:
+
+```{r, warning=FALSE}
+library(dplyr)
+library(tidyr)
+```
+
+We call this the _long_ format. Use the `gather` function from the `tidyr` package to create a new table for childhood mortality using the long format. Call the new columns `year` and `child_mortality`
+
+```{r,warning=FALSE}
+# We want to gather everything except the country column, key is the year and each year gets the value of the child mortality in the country in that year
+cmort_long <- cmort %>% 
+  gather(key = year, value = child_mortality, -Country) 
+```
+
+Now redefine the remaining tables in this way.
+
+```{r,warning=FALSE}
+lifex_long <- lifex %>% 
+  gather(key = year, value = life_expectancy, -Country) 
+fert_long <- fert %>% 
+  gather(key = year, value = fertility, -Country) 
+pop_long <- pop %>% 
+  gather(key = year, value = population, -Country) 
+gdp_long <- gdp %>% 
+  gather(key = year, value = total_gdp, -Country) 
+```
+
+
+## Problem 1.5
+
+Now we want to join all these files together. Make one consolidated table containing all the columns
+
+```{r,warning=FALSE}
+#Full join tables, one table at a time
+cons_tbl<-full_join(cmort_long, lifex_long)%>%
+  full_join(fert_long)%>%
+  full_join(pop_long)%>%
+  full_join(gdp_long)
+```
+
+## Problem 1.6
+
+Add a column to the consolidated table containing the continent for each country. Hint: We have created a file that maps countries to continents [here](https://github.com/datasciencelabs/data/blob/master/homework_data/continent-info.tsv). Hint: Learn to use the `left_join` function.
+
+```{r,warning=FALSE}
+# Left join by country. Note that the consolidated table now has more observations than it did (60009 to 60225). This is because Cyprus has been assigned to both Asia and Europe in the continent-info.tsv file.
+cont<- read.delim("https://raw.githubusercontent.com/datasciencelabs/data/master/homework_data/continent-info.tsv",
+                  header=FALSE)
+colnames(cont)[1]<-"Country"
+colnames(cont)[2]<-"Continent"
+cons_tbl<-left_join(cons_tbl, cont, by="Country")
+```
+
+# Problem 2 
+
+Report the child mortalilty rate in 2015 for these 5 pairs:
+
+1. Sri Lanka or Turkey
+2. Poland or South Korea
+3. Malaysia or Russia
+4. Pakistan or Vietnam
+5. Thailand or South Africa
+
+```{r,warning=FALSE}
+cons_tbl %>%
+  filter(year==2015) %>%
+  filter(Country %in% c("Sri Lanka", "Turkey")) %>%
+  select(c(Country, child_mortality))
+
+cons_tbl %>%
+  filter(year==2015) %>%
+  filter(Country %in% c("Poland", "South Korea")) %>%
+  select(c(Country, child_mortality))
+
+cons_tbl %>%
+  filter(year==2015) %>%
+  filter(Country %in% c("Malaysia", "Russia")) %>%
+  select(c(Country, child_mortality))
+
+cons_tbl %>%
+  filter(year==2015) %>%
+  filter(Country %in% c("Pakistan", "Vietnam")) %>%
+  select(c(Country, child_mortality))
+
+cons_tbl %>%
+  filter(year==2015) %>%
+  filter(Country %in% c("Thailand", "South Africa")) %>%
+  select(c(Country, child_mortality))
+
+```
+
+# Problem 3
+
+To examine if in fact there was a long-life-in-a-small-family and short-life-in-a-large-family dichotomy,  we will visualize the average number of children per family (fertility) and the life expectancy for each country.
+
+## Problem 3.1 
+
+Use `ggplot2` to create a plot of life expectancy versus fertiltiy for 1962 for Africa, Asia, Europe, and the Americas. Use color to denote continent and point size to denote population size:
+
+```{r,warning=FALSE}
+library(ggplot2)
+cons_tbl %>%
+  filter(year==1962) %>%
+  filter(Continent %in% c("Asia", "Africa", "Europe", "Americas")) %>%
+  ggplot(aes(x=fertility, y=life_expectancy)) + 
+  geom_point(aes(color=Continent, size=population)) +
+  labs(title="Life Expectancy vs Fertility in 1962 by country", x="Total Fertility Rate", y="Life Expectancy at birth in years")
+```
+
+Do you see a dichotomy? Explain.
+
+Yes, I see a dichotomy. There is a cluster of countries on the top left with low fertility and high life expectancy. Most of the countries in this cluster are from Europe. There is also a cluster on the bottom right corner with high fertility and low life expectancy. These countries are mostly from Africa and Asia.
+
+
+## Problem 3.2
+
+Now we will annotate the plot to show different types of countries. 
+
+Learn about OECD and OPEC. Add a couple of columns to your consolidated tables containing a logical vector that tells if a country is OECD and OPEC respectively. It is ok to base membership on 2015.
+
+```{r,warning=FALSE}
+#Indonesia is not included as an OPEC country here because it was not a member in 2015. Create two csv files with the names of the OECD and OPEC countries. Read the files into dataframes and then use unlist command to simplify the list structure and create vectors that contain names of the countries. Add columns that contain logical vectors that tell whether a country is OECD or OPEC.
+
+oecd<- c("Australia", "Austria", "Belgium", "Canada", "Chile", "Czech Republic", "Denmark", "Estonia", "Finland", 
+         "France", "Germany", "Greece", "Hungary", "Iceland", "Ireland", "Israel", "Italy", "Japan", "South Korea", 
+         "Luxembourg", "Mexico", "Netherlands", "New Zealand", "Norway", "Poland", "Portugal", "Slovak Republic", 
+         "Slovenia", "Spain", "Sweden", "Switzerland", "Turkey", "United Kingdom", "United States")
+opec<- c("Algeria", "Angola", "Ecuador", "Iran", "Iraq", "Kuwait", "Libya", "Nigeria", "Qatar", "Saudi Arabia", 
+         "UAE", "Venezuela" )
+cons_tbl<-cons_tbl %>%
+  mutate(OECD=Country %in% oecd) %>%
+  mutate(OPEC=Country %in% opec)
+```
+
+### Problem 3.3
+
+Make the same plot as in Problem 3.1, but this time use color to annotate the OECD countries and OPEC countries. For countries that are not part of these two organization annotate if they are from Africa, Asia, or the Americas.
+
+```{r,warning=FALSE}
+#Create a new indicator column that indicates whether the country is in OPEC or OECD. If a country is in neither it indicates the name of the continent the country is in.
+cons_tbl<- cons_tbl %>%
+  mutate(ind=as.character(Continent)) %>%
+  mutate(ind=ifelse(OPEC, "OPEC", ind)) %>%
+  mutate(ind=ifelse(OECD, "OECD", ind))
+# Only including countries that are OECD, OPEC or in Asia, Africa or the Americas if they are not. This excludes countries in Europe and Oceania that are not in OECD or OPEC.
+cons_tbl %>%
+  filter(year==1962) %>%
+  filter(ind %in% c("OPEC", "OECD", "Asia", "Africa", "Americas")) %>%
+  ggplot(aes(x=fertility, y=life_expectancy, group=ind)) + 
+  scale_colour_discrete(name = "Group") +
+  geom_point(aes(color=ind, size=population)) +
+  labs(title="Life Expectancy vs Fertility in 1962 by country", x="Total Fertility Rate", y="Life Expectancy at birth in years")
+
+```
+
+How would you describe the dichotomy?
+
+In 1962, the OECD countries had high life expectancy and low fertility rates whereas the OPEC countries had high fertility rates and low to mid life expectancy. Most Asian and African countries were in the same cluster as the OPEC countries whereas the countries in the Americas were spread over both clusters.
+
+
+### Problem 3.4
+
+Explore how this figure changes across time. Show us 4 figures that demonstrate how this figure changes through time.
+
+```{r,warning=FALSE}
+years<-c(1962, 1980, 1998, 2015)
+cons_tbl %>%
+  filter(year%in%years) %>%
+  filter(ind %in% c("OPEC", "OECD", "Asia", "Africa", "Americas")) %>%
+  ggplot(aes(x=fertility, y=life_expectancy, group=ind)) + 
+  scale_colour_discrete(name = "Group") +
+  geom_point(aes(color=ind, size=population)) + 
+  facet_wrap(("year")) +
+  labs(title="Life Expectancy vs Fertility by country over time", x="Total Fertility Rate", y="Life Expectancy at birth in years")
+```
+
+Would you say that the same dichotomy exists today? Explain:
+The dichotomy is not as obvious as it was in 1962. There is more of a linear trend and a lot of countries in Asia have moved up in life expectancy and down in fertility rate and are in the same cluster as OECD countries and the Americas.The countries in OPEC and Africa fall along a spectrum of fertility and life expectancy with some countries in the high life expectancy-low fertility rate cluster. 
+
+## Problem 3.5 (Optional)
+
+Make an animation with the `gganimate` package.
+
+```{r, eval=FALSE}
+# Use year as a frame. Had to install ImageMagick and Macport.
+devtools::install_github("dgrtwo/gganimate")
+library(gganimate)
+timeline<-cons_tbl %>%
+  filter(year%in% seq(1910, 2010, 10)) %>%
+  filter(ind %in% c("OPEC", "OECD", "Asia", "Africa", "Americas")) %>%
+  ggplot(aes(x=fertility, y=life_expectancy, group=ind)) + 
+  scale_colour_discrete(name = "Group") +
+  geom_point(aes(color=ind, size=population, frame = year)) +
+  labs(title="Life Expectancy vs Fertility by country over time", x="Total Fertility Rate", y="Life Expectancy at birth in years")
+
+gg_animate(timeline)
+```
+
+
+# Problem 4 
+Having time as a third dimension made it somewhat difficult to see specific country trends. Let's now focus on specific countries.
+
+## Problem 4.1
+Let's compare France and its former colony Tunisia. Make a plot of fertility versus year with color denoting the country. Do the same for life expectancy. How would you compare Tunisia's improvement compared to France's in the past 60 years? Hint: use `geom_line`
+ 
+```{r,warning=FALSE}
+# Plotting fertility and life expectancy since 1955 for France and Tunisia. Need to include group as an aesthetic in ggplot else the default option will group by year when drawing the line.
+cons_tbl %>%
+  filter(Country %in% c("France", "Tunisia")) %>%
+  filter(year>=1955) %>%
+  ggplot(aes(x=year, y=fertility, group=Country)) + 
+  geom_line(aes(color=Country)) +
+  scale_x_discrete(breaks=seq(1955, 2015, 5)) +
+  labs(title="Fertility Rates in France and Tunisia over time", x="Year", y="Total Fertility Rate")
+
+cons_tbl %>%
+  filter(Country %in% c("France", "Tunisia")) %>%
+  filter(year>=1955) %>%
+  ggplot(aes(x=year, y=life_expectancy, group=Country)) + 
+  geom_line(aes(color=Country)) +
+  scale_x_discrete(breaks=seq(1955, 2015, 5)) +
+  labs(title="Life Expectancy in France and Tunisia over time", x="Year", y="Life Expectancy at birth in years")
+
+```
+
+##### Fertility
+In 1955, the fertility rate in Tunisia was about 3 times as much as France. From 1955 to about 1963, the fertility rates in both countries showed an upward trend. After 1963, both countries' fertility rates started going down but it went down at a much higher rate in Tunisia. Around 2000, the fertility rate in France showed a slight upward trend whereas that in Tunisia started flattening out. In 2015, both countries have almost the same fertility rates.
+
+##### Life Expectancy
+In 1955, the life expectancy in Tunisia was much lower than that in France. Life expectancy has been rising since then. Until 1985, the the rate was much faster in Tunisia. After 1985, the rates have been similar in both countries and in 2015 the gap between the two countries is only about 5 years compared to about 25 years in 1955.
+
+
+## Problem 4.2
+
+Do the same, but this time compare Vietnam to the OECD countries.
+
+```{r,warning=FALSE}
+# Plot all countries in OECD vs Vietnam. Color all OECD the same color and Vietnam a different color.
+cons_tbl %>%
+  filter(Country=="Vietnam" | ind=="OECD") %>%
+  filter(year>=1955) %>%
+  ggplot(aes(x=year, y=fertility, group=Country)) + 
+  geom_line(aes(color=OECD)) + 
+  scale_colour_discrete(name = "Country", breaks=c("FALSE", "TRUE"),labels=c("Vietnam", "OECD")) + 
+  scale_x_discrete(breaks=seq(1955, 2015, 5)) +
+  labs(title="Fertility in Vietnam vs OECD countries over time", x="Year", y="Total Fertility Rate")
+
+cons_tbl %>%
+  filter(Country=="Vietnam" | ind=="OECD") %>%
+  filter(year>=1955) %>%
+  ggplot(aes(x=year, y=life_expectancy, group=Country)) + 
+  geom_line(aes(color=OECD)) + 
+  scale_colour_discrete(name = "Country", breaks=c("FALSE", "TRUE"),labels=c("Vietnam", "OECD")) + 
+  scale_x_discrete(breaks=seq(1955, 2015, 5)) +
+  labs(title="Life Expectancy in Vietnam vs OECD countries over time", x="Year", y="Life Expectancy at birth in years")
+```
+
+##### Fertility
+Most countries in OECD had much lower fertility rates compared to Vietnam but after 1970, the fertility rate declined rapidly in Vietnam and started flattening out after 2000. In 2015, the fertility rate in Vietnam is about the same as the average in OECD countries.
+
+##### Life Expectancy
+Most countries in OECD had much higher life expectancy compared to Vietnam. Between 1966 and 1975, there was a sharp dip in life expectancy in Vietnam. After 1975, the life expectancy rose rapidly in Vietnam. In 2015, the life expectancy in Vietnam is around the lower bound of that for OECD countries.
+
+
+# Problem 5
+
+We are now going to examine GDP per capita per day.
+
+## Problem 5.1
+
+Create a smooth density estimate of the distribution of GDP per capita per day across countries in 1970. Include OECD, OPEC, Asia, Africa, and the Americas in the computation. When doing this we want to weigh countries with larger populations more. We can do this using the "weight"" argument in `geom_density`. 
+
+```{r,warning=FALSE}
+# Computing density only for OECD, OPEC, Asia, Africa, and the Americas in 1970. Use log scale and change x axis limit to go up to 1000. Default is 100.
+cons_tbl %>%
+  filter(year==1970) %>%
+  filter(ind %in% c("OPEC", "OECD", "Asia", "Africa", "Americas")) %>%
+  filter(!is.na(population)) %>%
+  ggplot(aes(x=(total_gdp/population)/365)) +
+  geom_density(aes(weight=population/sum(population))) + 
+  scale_x_log10(limits = c(1,1e3)) + 
+  labs(title = "Density of GDP per capita per day", x = "GDP per capita per day (log 10 scale)", y= "Density")
+```
+
+## Problem 5.2
+
+Now do the same but show each of the five groups separately.
+
+```{r,warning=FALSE}
+#Using facet grid to show the densities for the five groups separately
+cons_tbl %>%
+  filter(year==1970) %>%
+  filter(ind %in% c("OPEC", "OECD", "Asia", "Africa", "Americas")) %>%
+  filter(!is.na(population)) %>%
+  ggplot(aes(x=(total_gdp/population)/365)) + 
+  geom_density(aes(weight=population/sum(population), fill=ind, color=ind), alpha=0.3) + 
+  scale_x_log10() +
+  labs(title = "Density of GDP per capita per day by groups", x = "GDP per capita per day (log 10 scale)", y= "Density")
+```
+
+
+## Problem 5.3
+
+Visualize these densities for several years. Show a couple of of them. Summarize how the distribution has changed through the years.
+
+```{r,warning=FALSE, eval=FALSE}
+#Visualize for 5 different years. Don't need to show this.
+cons_tbl %>%
+  filter(year %in% seq(1975, 2005, 10)) %>%
+  filter(ind %in% c("OPEC", "OECD", "Asia", "Africa", "Americas")) %>%
+  filter(!is.na(population)) %>%
+  ggplot(aes(x=(total_gdp/population)/365)) + 
+  geom_density(aes(weight=population/sum(population), color=year)) + 
+  scale_x_log10(limits = c(1,1e3)) +
+  facet_grid(year~ind) + 
+  labs(title = "Density of GDP per capita per day by group and year", x = "GDP per capita per day (log 10 scale)", y= "Density")
+```
+
+```{r,warning=FALSE}
+cons_tbl %>%
+  filter(year %in% c(1971, 2011)) %>%
+  filter(ind %in% c("OPEC", "OECD", "Asia", "Africa", "Americas")) %>%
+  filter(!is.na(population)) %>%
+  ggplot(aes(x=(total_gdp/population)/365)) + 
+  facet_grid(~ind) + 
+  geom_density(aes(weight=population/sum(population), color=year, fill = year), alpha= 0.3) + 
+  scale_x_log10(limits = c(1,1e3)) +
+  labs(title = "Density of GDP per capita per day by group and year", x = "GDP per capita per day (log 10 scale)", y= "Density")
+```
+
+The GDP per capita per person rose for the entire population in all groups between 1971 and 2011. In Americas, Asia and the OECD countries, there was a righward shift meaning more countries had higher GDP per capita per person in 2011 compared to 1971 in those groups. The shift was most dramatic in Asia.
+
+
